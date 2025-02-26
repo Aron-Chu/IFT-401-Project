@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="mb-4">Create Stock</h1>
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <form method="post" class="border p-4 shadow-sm bg-light">
+      <div class="mb-3">
+        <label class="form-label">Company Name</label>
+        <input type="text" name="company_name" placeholder="Company Name" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Ticker</label>
+        <input type="text" name="ticker" placeholder="Ticker" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Volume</label>
+        <input type="number" name="volume" placeholder="Volume" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Initial Price</label>
+        <input type="number" step="0.01" name="initial_price" placeholder="Initial Price" class="form-control">
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Create</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

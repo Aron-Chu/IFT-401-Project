@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="mb-4">Available Stocks</h1>
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th scope="col">Ticker</th>
+      <th scope="col">Price</th>
+      <th scope="col">Volume</th>
+      <th scope="col">Market Cap</th>
+      <th scope="col">Opening</th>
+      <th scope="col">High</th>
+      <th scope="col">Low</th>
+      <th scope="col">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for stock in stocks %}
+    <tr>
+      <td>{{ stock.ticker }}</td>
+      <td>{{ stock.current_price }}</td>
+      <td>{{ stock.volume }}</td>
+      <td>{{ stock.volume * stock.current_price }}</td>
+      <td>{{ stock.opening_price }}</td>
+      <td>{{ stock.high }}</td>
+      <td>{{ stock.low }}</td>
+      <td>
+        {% if current_user.is_authenticated %}
+        <form action="{{ url_for('buy') }}" method="post" class="d-flex">
+          <input type="hidden" name="stock_id" value="{{ stock.id }}">
+          <input type="number" name="quantity" placeholder="Qty" class="form-control form-control-sm me-2" style="width: 80px;">
+          <button type="submit" class="btn btn-sm btn-success">Buy</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="text-end mb-4">
+  <a class="btn btn-secondary" href="{{ url_for('update_prices') }}">Refresh Prices</a>
+</div>
+
+{% if chart_stock %}
+<h2 class="mt-5">Price Chart for {{ chart_stock.ticker }}</h2>
+<canvas id="priceChart" width="400" height="200"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  var ctx = document.getElementById('priceChart').getContext('2d');
+  var chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: {{ labels|tojson }},
+      datasets: [{
+        label: '{{ chart_stock.ticker }} Price',
+        data: {{ data_points|tojson }},
+        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: false
+        }
+      }
+    }
+  });
+</script>
+{% else %}
+<p>No stocks available to display chart.</p>
+{% endif %}
+{% endblock %}
