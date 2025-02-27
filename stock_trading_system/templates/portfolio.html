@@ -60,14 +60,35 @@
   <h3>Sell Stocks</h3>
   <form action="{{ url_for('sell') }}" method="post" class="border p-4 shadow-sm bg-light">
     <div class="mb-3">
-      <label class="form-label">Stock ID</label>
-      <input type="number" name="stock_id" placeholder="Stock ID" class="form-control">
+      <label class="form-label">Stock Ticker</label>
+      <select name="stock_id" id="stockSelect" class="form-control">
+        {% for holding in portfolio %}
+          <option value="{{ holding.id }}" data-quantity="{{ holding.quantity }}">{{ holding.ticker }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div class="mb-3">
-      <label class="form-label">Quantity</label>
-      <input type="number" name="quantity" placeholder="Quantity" class="form-control">
+      <label class="form-label">Quantity to Sell</label>
+      <input type="number" name="quantity" id="quantityInput" class="form-control" min="0" placeholder="Enter quantity">
+      <small id="availableMsg" class="form-text text-muted"></small>
     </div>
     <button type="submit" class="btn btn-primary">Sell</button>
   </form>
 </div>
+
+<script>
+  function updateAvailableMsg() {
+    var stockSelect = document.getElementById('stockSelect');
+    var quantityInput = document.getElementById('quantityInput');
+    var availableMsg = document.getElementById('availableMsg');
+    var selectedOption = stockSelect.options[stockSelect.selectedIndex];
+    var maxQuantity = parseInt(selectedOption.getAttribute('data-quantity')) || 0;
+    
+    quantityInput.max = maxQuantity;
+    availableMsg.textContent = "Available: " + maxQuantity + " shares";
+  }
+  document.getElementById('stockSelect').addEventListener('change', updateAvailableMsg);
+  
+  updateAvailableMsg();
+</script>
 {% endblock %}

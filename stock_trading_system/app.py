@@ -1,10 +1,11 @@
 from flask import Flask, render_template, redirect, request, url_for
 from database import db
-from models import User, Stock, Transaction, Order
+from models import User, Stock, Transaction, Order, PriceHistory
 from price_generator import update_stock_price
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
+import os
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///stock_trading.db'
@@ -20,6 +21,7 @@ def load_user(user_id):
 
 with app.app_context():
     db.create_all()
+    # Create admin user if not exists.
     if not User.query.filter_by(username='admin').first():
         admin_user = User(
             full_name="Administrator",
@@ -38,12 +40,12 @@ def index():
     labels = []
     data_points = []
     if chart_stock:
-        base_time = datetime.utcnow()
-        for i in range(10):
-            time = base_time - timedelta(minutes=10 * (10 - i))
-            labels.append(time.strftime('%H:%M'))
-            simulated_price = round(chart_stock.current_price * (1 + (0.05 * (i - 5) / 5)), 2)
-            data_points.append(simulated_price)
+        # Fetch the price history for the selected stock, ordered by timestamp.
+        history = PriceHistory.query.filter_by(stock_id=chart_stock.id).order_by(PriceHistory.timestamp).all()
+        for record in history:
+            # Format timestamp as HH:mm (you can adjust the format as needed)
+            labels.append(record.timestamp.strftime('%H:%M'))
+            data_points.append(record.price)
     return render_template('index.html', stocks=stocks, chart_stock=chart_stock, labels=labels, data_points=data_points)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -83,7 +85,31 @@ def register():
 def portfolio():
     transactions = Transaction.query.filter_by(user_id=current_user.id).all()
     orders = Order.query.filter_by(user_id=current_user.id, status='pending').all()
-    return render_template('portfolio.html', transactions=transactions, orders=orders, cash=current_user.cash)
+    
+    holdings_dict = {}
+    for txn in transactions:
+        stock = Stock.query.get(txn.stock_id)
+        if stock:
+            holdings_dict.setdefault(stock.id, {'ticker': stock.ticker, 'quantity': 0})
+            if txn.type == 'buy':
+                holdings_dict[stock.id]['quantity'] += txn.quantity
+            elif txn.type == 'sell':
+                holdings_dict[stock.id]['quantity'] -= txn.quantity
+                
+    portfolio_holdings = []
+    for stock_id, data in holdings_dict.items():
+        if data['quantity'] > 0:
+            portfolio_holdings.append({
+                'id': stock_id,
+                'ticker': data['ticker'],
+                'quantity': data['quantity']
+            })
+            
+    return render_template('portfolio.html',
+                           transactions=transactions,
+                           orders=orders,
+                           cash=current_user.cash,
+                           portfolio=portfolio_holdings)
 
 @app.route('/buy', methods=['POST'])
 @login_required
@@ -93,7 +119,7 @@ def buy():
     cost = stock.current_price * quantity
     if current_user.cash >= cost:
         current_user.cash -= cost
-        order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='buy')
+        order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='buy', status='executed')
         db.session.add(order)
         transaction = Transaction(user_id=current_user.id, stock_id=stock.id, quantity=quantity, price=stock.current_price, type='buy')
         db.session.add(transaction)
@@ -105,7 +131,7 @@ def buy():
 def sell():
     stock = Stock.query.filter_by(id=request.form['stock_id']).first()
     quantity = int(request.form['quantity'])
-    order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='sell')
+    order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='sell', status='executed')
     db.session.add(order)
     transaction = Transaction(user_id=current_user.id, stock_id=stock.id, quantity=quantity, price=stock.current_price, type='sell')
     current_user.cash += stock.current_price * quantity
@@ -150,6 +176,17 @@ def create_stock():
         db.session.commit()
         return redirect(url_for('admin_dashboard'))
     return render_template('create_stock.html')
+
+@app.route('/admin/remove_stock/<int:stock_id>', methods=['POST'])
+@login_required
+def remove_stock(stock_id):
+    if current_user.username != 'admin':
+        return redirect(url_for('index'))
+    stock = Stock.query.get(stock_id)
+    if stock:
+        db.session.delete(stock)
+        db.session.commit()
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/update_prices')
 def update_prices():
