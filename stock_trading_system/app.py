@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, request, url_for
+from flask import Flask, flash, render_template, redirect, request, url_for
 from database import db
 from models import User, Stock, Transaction, Order, PriceHistory
 from price_generator import update_stock_price
@@ -138,6 +138,36 @@ def sell():
     db.session.add(transaction)
     db.session.commit()
     return redirect(url_for('portfolio'))
+
+#deposit
+@app.route('/deposit', methods=['POST'])
+@login_required
+def deposit():
+    amount = float(request.form['amount'])
+    if request.method == 'POST':
+        current_user.cash = current_user.cash + amount
+        db.session.commit()
+        flash('Successfully deposited!', 'success')
+        return redirect(url_for('portfolio'))
+    else:
+        flash('There was an error with your deposit.', 'error')
+        return redirect(url_for('portfolio'))
+
+#withdraw
+@app.route('/withdraw', methods=['POST'])
+@login_required
+def withdraw():
+    amount = float(request.form['amount'])
+    if amount > current_user.cash:
+        flash('Insufficient Funds.', 'error')
+        return redirect(url_for('portfolio'))
+    elif amount < current_user.cash:
+        flash('Successfully withdrawn!', 'success')
+        current_user.cash = current_user.cash - amount
+        db.session.commit()
+        return redirect(url_for('portfolio'))
+    else:
+        return redirect(url_for('portfolio'))
 
 @app.route('/cancel_order/<int:order_id>')
 @login_required
