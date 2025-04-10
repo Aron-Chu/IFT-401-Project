@@ -1,10 +1,10 @@
 from flask import Flask, flash, render_template, redirect, request, url_for
 from database import db
-from models import User, Stock, Transaction, Order, PriceHistory
+from models import User, Stock, Transaction, Order, PriceHistory, MarketHours, Holiday
 from price_generator import update_stock_price
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, date
 import os
 
 app = Flask(__name__)
@@ -36,6 +36,8 @@ with app.app_context():
 @app.route('/')
 def index():
     stocks = Stock.query.all()
+    schedule = MarketHours.query.all()
+    holidays = Holiday.query.all()
     chart_stock = stocks[0] if stocks else None
     labels = []
     data_points = []
@@ -46,7 +48,7 @@ def index():
             # Format timestamp as HH:mm (you can adjust the format as needed)
             labels.append(record.timestamp.strftime('%H:%M'))
             data_points.append(record.price)
-    return render_template('index.html', stocks=stocks, chart_stock=chart_stock, labels=labels, data_points=data_points)
+    return render_template('index.html', stocks=stocks, chart_stock=chart_stock, labels=labels, data_points=data_points, schedule = schedule, holidays=holidays)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -225,6 +227,39 @@ def update_prices():
         update_stock_price(stock)
     db.session.commit()
     return redirect(url_for('index'))
+
+#market hours
+@app.route('/hours', methods=['GET', 'POST'])
+@login_required
+def hours():
+    if current_user.username != 'admin':
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        day = request.form['day_of_week']
+        open_time = datetime.strptime(request.form['opening_time'], '%H:%M').time()
+        close_time = datetime.strptime(request.form['closing_time'], '%H:%M').time()
+
+        schedule = MarketHours(day_of_week=day, opening_time=open_time, closing_time=close_time)
+        db.session.add(schedule)
+        db.session.commit()
+        return redirect(url_for('admin_dashboard'))
+    return render_template('admin_dashboard.html', schedule=schedule)
+
+#market holidays
+@app.route('/add_holiday', methods=['GET', 'POST'])
+@login_required
+def add_holiday():
+    if current_user.username != 'admin':
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        date_string = request.form['holiday_date']
+        date_object = datetime.strptime(date_string, '%Y-%m-%d').date()
+        name = request.form['holiday_name']
+        holidays = Holiday(holiday_date=date_object, holiday_name=name)
+        db.session.add(holidays)
+        db.session.commit()
+        return redirect(url_for('admin_dashboard'))
+    return render_template('admin_dashboard.html', holidays=holidays)
 
 if __name__ == '__main__':
     app.run(debug=True)
