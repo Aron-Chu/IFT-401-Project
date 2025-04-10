@@ -43,3 +43,14 @@ class Order(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     type = db.Column(db.String(10), nullable=False)
     status = db.Column(db.String(20), default='pending')
+
+class MarketHours(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    day_of_week = db.Column(db.String(10), nullable=False) # (Monday) - (Sunday)
+    opening_time = db.Column(db.Time, nullable=False)
+    closing_time = db.Column(db.Time, nullable=False)
+
+class Holiday(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    holiday_date = db.Column(db.Date, nullable=False, unique=True)
+    holiday_name = db.Column(db.String(100))
