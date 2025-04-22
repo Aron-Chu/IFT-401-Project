@@ -46,7 +46,7 @@ class Order(db.Model):
 
 class MarketHours(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    day_of_week = db.Column(db.String(10), nullable=False) # (Monday) - (Sunday)
+    day_of_week = db.Column(db.Integer)  # 0 (Monday) - 6 (Sunday)
     opening_time = db.Column(db.Time, nullable=False)
     closing_time = db.Column(db.Time, nullable=False)
 
