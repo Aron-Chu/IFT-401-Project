@@ -1,5 +1,22 @@
 {% extends 'base.html' %}
 {% block content %}
+<!--Flash message-->
+{% with messages = get_flashed_messages(category_filter=["error"]) %}
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+<div class="mb-5" style="text-align: center;">
+  <h1>Market Hours</h1>
+  <h6>Open on Weekdays at 8:00AM-20:00PM</h6>
+  <h6>Closed on Holidays and Weekends.</h6>
+  <p>The current date and time is {{date_time}}</p>
+</div>
 <h1 class="mb-4">Available Stocks</h1>
 <table class="table table-striped table-hover">
   <thead>
