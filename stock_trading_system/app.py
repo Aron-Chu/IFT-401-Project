@@ -41,6 +41,9 @@ def index():
     chart_stock = stocks[0] if stocks else None
     labels = []
     data_points = []
+    #date and time
+    now = datetime.now()
+    date_time = now.strftime("%d/%m/%Y, %H:%M:%S")
     if chart_stock:
         # Fetch the price history for the selected stock, ordered by timestamp.
         history = PriceHistory.query.filter_by(stock_id=chart_stock.id).order_by(PriceHistory.timestamp).all()
@@ -48,7 +51,7 @@ def index():
             # Format timestamp as HH:mm (you can adjust the format as needed)
             labels.append(record.timestamp.strftime('%H:%M'))
             data_points.append(record.price)
-    return render_template('index.html', stocks=stocks, chart_stock=chart_stock, labels=labels, data_points=data_points, schedule = schedule, holidays=holidays)
+    return render_template('index.html', date_time=date_time, stocks=stocks, chart_stock=chart_stock, labels=labels, data_points=data_points, schedule = schedule, holidays=holidays)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -87,7 +90,10 @@ def register():
 def portfolio():
     transactions = Transaction.query.filter_by(user_id=current_user.id).all()
     orders = Order.query.filter_by(user_id=current_user.id, status='pending').all()
-    
+    #date and time
+    now = datetime.now()
+    date_time = now.strftime("%d/%m/%Y, %H:%M:%S")
+
     holdings_dict = {}
     for txn in transactions:
         stock = Stock.query.get(txn.stock_id)
@@ -111,35 +117,63 @@ def portfolio():
                            transactions=transactions,
                            orders=orders,
                            cash=current_user.cash,
-                           portfolio=portfolio_holdings)
+                           portfolio=portfolio_holdings, date_time=date_time)
+
+def is_market_open():
+    now = datetime.now()
+    today = now.date()
+    current_time = now.time()
+    day_of_week_now = now.weekday()
+    schedule = MarketHours.query.filter_by(day_of_week=day_of_week_now).first()
+    holiday = Holiday.query.filter_by(holiday_date=today).first()
+   
+    if holiday:
+        return False
+    
+    #default schedule
+    if schedule:
+        if schedule.opening_time <= current_time <= schedule.closing_time:
+            return True
+    elif 0 <= day_of_week_now <= 4:
+        if time(8, 0) <= current_time <= time(20, 0):
+            return True
+    return False
 
 @app.route('/buy', methods=['POST'])
 @login_required
 def buy():
-    stock = Stock.query.filter_by(id=request.form['stock_id']).first()
-    quantity = int(request.form['quantity'])
-    cost = stock.current_price * quantity
-    if current_user.cash >= cost:
-        current_user.cash -= cost
-        order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='buy', status='executed')
-        db.session.add(order)
-        transaction = Transaction(user_id=current_user.id, stock_id=stock.id, quantity=quantity, price=stock.current_price, type='buy')
-        db.session.add(transaction)
-        db.session.commit()
-    return redirect(url_for('portfolio'))
+    if is_market_open():
+        stock = Stock.query.filter_by(id=request.form['stock_id']).first()
+        quantity = int(request.form['quantity'])
+        cost = stock.current_price * quantity
+        if current_user.cash >= cost:
+            current_user.cash -= cost
+            order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='buy', status='executed')
+            db.session.add(order)
+            transaction = Transaction(user_id=current_user.id, stock_id=stock.id, quantity=quantity, price=stock.current_price, type='buy')
+            db.session.add(transaction)
+            db.session.commit()
+        return redirect(url_for('portfolio'))
+    else:
+        flash('It is not market hours.', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/sell', methods=['POST'])
 @login_required
 def sell():
-    stock = Stock.query.filter_by(id=request.form['stock_id']).first()
-    quantity = int(request.form['quantity'])
-    order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='sell', status='executed')
-    db.session.add(order)
-    transaction = Transaction(user_id=current_user.id, stock_id=stock.id, quantity=quantity, price=stock.current_price, type='sell')
-    current_user.cash += stock.current_price * quantity
-    db.session.add(transaction)
-    db.session.commit()
-    return redirect(url_for('portfolio'))
+    if is_market_open():
+        stock = Stock.query.filter_by(id=request.form['stock_id']).first()
+        quantity = int(request.form['quantity'])
+        order = Order(user_id=current_user.id, stock_id=stock.id, quantity=quantity, type='sell', status='executed')
+        db.session.add(order)
+        transaction = Transaction(user_id=current_user.id, stock_id=stock.id, quantity=quantity, price=stock.current_price, type='sell')
+        current_user.cash += stock.current_price * quantity
+        db.session.add(transaction)
+        db.session.commit()
+        return redirect(url_for('portfolio'))
+    else:
+        flash('It is not market hours.', 'error')
+        return redirect(url_for('index'))
 
 #deposit
 @app.route('/deposit', methods=['POST'])
@@ -186,7 +220,9 @@ def admin_dashboard():
     if current_user.username != 'admin':
         return redirect(url_for('index'))
     stocks = Stock.query.all()
-    return render_template('admin_dashboard.html', stocks=stocks)
+    schedule = MarketHours.query.all()
+    holidays= Holiday.query.all()
+    return render_template('admin_dashboard.html', stocks=stocks, schedule=schedule, holidays=holidays)
 
 @app.route('/admin/create_stock', methods=['GET', 'POST'])
 @login_required
@@ -220,6 +256,22 @@ def remove_stock(stock_id):
         db.session.commit()
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/delete_hours/<int:id>', methods=['POST'])
+def delete_hours(id):
+     hours = MarketHours.query.get_or_404(id)
+     if hours:
+        db.session.delete(hours)
+        db.session.commit()
+     return redirect(url_for('admin_dashboard'))
+
+@app.route('/delete_holiday/<int:id>', methods=['POST'])
+def delete_holiday(id):
+     day = Holiday.query.get_or_404(id)
+     if day:
+        db.session.delete(day)
+        db.session.commit()
+     return redirect(url_for('admin_dashboard'))
+
 @app.route('/update_prices')
 def update_prices():
     stocks = Stock.query.all()
@@ -228,37 +280,41 @@ def update_prices():
     db.session.commit()
     return redirect(url_for('index'))
 
-#market hours
-@app.route('/hours', methods=['GET', 'POST'])
+#market hours function
+@app.route('/admin/hours', methods=['GET', 'POST'])
 @login_required
 def hours():
     if current_user.username != 'admin':
         return redirect(url_for('index'))
     if request.method == 'POST':
-        day = request.form['day_of_week']
-        open_time = datetime.strptime(request.form['opening_time'], '%H:%M').time()
-        close_time = datetime.strptime(request.form['closing_time'], '%H:%M').time()
+        day = int(request.form['day_of_week1'])
+        open = request.form['opening_time1']
+        close = request.form['closing_time1']
+        open_time = datetime.strptime(open, '%H:%M:%s').time()
+        close_time = datetime.strptime(close, '%H:%M:%s').time()
 
-        schedule = MarketHours(day_of_week=day, opening_time=open_time, closing_time=close_time)
-        db.session.add(schedule)
+        new_schedule = MarketHours(day_of_week=day, opening_time=open_time, closing_time=close_time)
+        db.session.add(new_schedule)
         db.session.commit()
         return redirect(url_for('admin_dashboard'))
+    schedule = MarketHours.query.all()
     return render_template('admin_dashboard.html', schedule=schedule)
 
-#market holidays
-@app.route('/add_holiday', methods=['GET', 'POST'])
+#market holidays function
+@app.route('/admin/add_holiday', methods=['GET', 'POST'])
 @login_required
 def add_holiday():
     if current_user.username != 'admin':
         return redirect(url_for('index'))
     if request.method == 'POST':
-        date_string = request.form['holiday_date']
-        date_object = datetime.strptime(date_string, '%Y-%m-%d').date()
         name = request.form['holiday_name']
-        holidays = Holiday(holiday_date=date_object, holiday_name=name)
-        db.session.add(holidays)
+        date_st = request.form['holiday_date']
+        date_object = datetime.strptime(date_st, '%Y-%m-%d').date()
+        new_holiday = Holiday(holiday_date=date_object, holiday_name=name)
+        db.session.add(new_holiday)
         db.session.commit()
         return redirect(url_for('admin_dashboard'))
+    holidays = Holiday.query.all()
     return render_template('admin_dashboard.html', holidays=holidays)
 
 if __name__ == '__main__':
