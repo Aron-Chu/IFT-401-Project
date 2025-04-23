@@ -63,7 +63,8 @@
       {% endfor %}
     </tbody>
   </table>
-<!--Change hours/days and holidays-->
+</div>
+<!--Change hours-->
 <div class="mb-5">
   <h3>Change Market Hours</h3>
   <form action="{{ url_for('hours') }}" method="post" class="border p-4 shadow-sm bg-light">
@@ -75,6 +76,7 @@
     <button type="submit" class="btn btn-primary">Submit</button>
   </form>
 </div>
+<!--Add holidays-->
 <div class="mb-5">
   <h3>Change Market Schedule or add Holidays</h3>
   <form action="{{ url_for('add_holiday') }}" method="post" class="border p-4 shadow-sm bg-light">
@@ -84,57 +86,61 @@
     </div>
     <button type="submit" class="btn btn-primary">Submit</button>
 </div>
-  <div>
-    <h3>Current Market Schedule</h3>
-    <table class="table table-striped table-hover">
-
-      <thead>
-        <tr>
-          <th scope="col">Day #</th>
-          <th scope="col">Opening</th>
-          <th scope="col">Closing</th>
-          <th scope="col">Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for schedules in schedule %}
-        <tr>
-          <td>{{ schedules.day_of_week }}</td>
-          <td>{{ schedules.opening_time }}</td>
-          <td>{{ schedules.closing_time }}</td>
-          <td>
-          <form action="{{ url_for('delete_hours', id=schedules.id) }}" method="post" onsubmit="return confirm('Are you sure you want to remove this stock?');">
+<!--Display market hours-->
+<div>
+  <h3>Current Market Schedule</h3>
+  <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th scope="col">Day Index</th>
+        <th scope="col">Opening</th>
+        <th scope="col">Closing</th>
+        <th scope="col">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for schedules in schedule %}
+      <tr>
+        <td>{{ schedules.day_of_week }}</td>
+        <td>{{ schedules.opening_time }}</td>
+        <td>{{ schedules.closing_time }}</td>
+        <td>
+          <form></form>
+          <form action="{{ url_for('delete_hours', hours_id=schedules.id) }}" method="post">
             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
           </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <table class="table table-striped table-hover">
-      <thead>
-        <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Closed Date</th>
-          <th scope="col"></th>
-          <th scope="col">Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for holiday in holidays %}
-        <tr>
-          <td>{{ holiday.holiday_name }}</td>
-          <td>{{ holiday.holiday_date }}</td>
-          <td></td>
-          <td>
-          <form action="{{ url_for('delete_holiday', id=holiday.id) }}" method="post" onsubmit="return confirm('Are you sure you want to remove this stock?');">
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<!--Display market holidays-->
+<div>
+  <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Closed Date</th>
+        <th scope="col"></th>
+        <th scope="col">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for holiday in holidays %}
+      <tr>
+        <td>{{ holiday.holiday_name }}</td>
+        <td>{{ holiday.holiday_date }}</td>
+        <td></td>
+        <td>
+          <form></form>
+          <form action="{{ url_for('delete_holiday', id_val=holiday.id) }}" method="post">
             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
           </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endblock %}
